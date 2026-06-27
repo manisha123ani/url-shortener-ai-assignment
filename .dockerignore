@@ -1,0 +1,24 @@
+# ---- Build stage ----
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+COPY UrlShortener.sln ./
+COPY src/UrlShortener.Api/UrlShortener.Api.csproj src/UrlShortener.Api/
+COPY tests/UrlShortener.Tests/UrlShortener.Tests.csproj tests/UrlShortener.Tests/
+RUN dotnet restore UrlShortener.sln
+
+COPY . .
+RUN dotnet publish src/UrlShortener.Api/UrlShortener.Api.csproj -c Release -o /app/publish
+
+# ---- Runtime stage ----
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+
+ENV PORT=10000
+EXPOSE 10000
+
+ENV ConnectionStrings__Default="Data Source=/app/data/urlshortener.db"
+RUN mkdir -p /app/data
+
+ENTRYPOINT ["sh", "-c", "ASPNETCORE_URLS=http://+:${PORT} dotnet UrlShortener.Api.dll"]
